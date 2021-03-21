@@ -2,14 +2,14 @@
 /*                                                                          */
 /*       parser1.c      Pure parser for CPL. Simple program to accept       */
 /*                      all syntactically valid CPL source code, and 	    */
-/*                      reject all invalid source code.				        */
+/*                      reject all invalid source code.                     */
 /*                                                                          */
 /*       This parser will follow the CPL grammar found in the 'grammar.pdf  */
 /*       file on Sulis. Program prints "valid" to terminal if source code   */
 /*       is syntactically valid; prints "syntax error" otherwise.           */
 /*                                                                          */
-/*       Authors: Ronan Keaveney, Charlie Gorey O'Neill,  				    */
-/*		 		  Conor Cosgrave, Emmett Lawlor   							*/
+/*       Authors: Ronan Keaveney, Charlie Gorey O'Neill,                    */
+/*		 		  Conor Cosgrave, Emmett Lawlor                             */
 /*                                                                          */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
