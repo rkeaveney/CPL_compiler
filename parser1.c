@@ -1,34 +1,16 @@
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*       parser1.c      Intial stab at a version of parser1.c using a       */
-/*                      very small (& modified) subset of the CPL grammar   */
+/*       parser1.c      Pure parser for CPL. Simple program to accept       */
+/*                      all syntactically valid CPL source code, and 	    */
+/*                      reject all invalid source code.				        */
 /*                                                                          */
-/*       An illustration of the use of the character handler and scanner    */
-/*       in a parser for the language                                       */
+/*       This parser will follow the CPL grammar found in the 'grammar.pdf  */
+/*       file on Sulis. Program prints "valid" to terminal if source code   */
+/*       is syntactically valid; prints "syntax error" otherwise.           */
 /*                                                                          */
-/*       <Program>       :==  "PROGRAM" <Identifier> ";"                    */
-/*                            [ <Declarations> ] <Block> "."           (1)  */
-/*       <Declarations>  :==  "VAR" <Variable> { "," <Variable> } ";"  (2)  */
-/*       <Block>         :==  "BEGIN" { <Statement> ";" } "END"        (3)  */
-/*       <Statement>     :==  <Identifier> ":=" <Expression>           (4)  */
-/*       <Expression>    :==  <Term> { ("+"|"-") <Term> }              (5)  */
-/*       <Term>          :==  <Variable> | <IntConst>                  (6)  */
-/*       <Variable>      :==  <Identifier>                             (7)  */
+/*       Authors: Ronan Keaveney, Charlie Gorey O'Neill,  				    */
+/*		 		  Conor Cosgrave, Emmett Lawlor   							*/
 /*                                                                          */
-/*                                                                          */
-/*       Note - <Identifier> and <IntConst> are provided by the scanner     */
-/*       as tokens IDENTIFIER and INTCONST respectively.                    */
-/*                                                                          */
-/*       As <Variable> is just a renaming of <Identifier>, we will omit     */
-/*       any explicit implementation of <Variable>, and just use            */
-/*       "Accept( IDENTIFIER );"  wherever a <Variable> is needed.          */
-/*                                                                          */
-/*       Although the listing file generator has to be initialised in       */
-/*       this program, full listing files cannot be generated in the        */
-/*       presence of errors because of the "crash and burn" error-          */
-/*       handling policy adopted. Only the first error is reported, the     */
-/*       remainder of the input is simply copied to the output (using       */
-/*       the routine "ReadToEndOfFile") without further comment.            */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
