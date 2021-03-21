@@ -9,10 +9,21 @@
 /*       is syntactically valid; prints "syntax error" otherwise.           */
 /*                                                                          */
 /*       Authors: Ronan Keaveney, Charlie Gorey O'Neill,                    */
-/*		 		  Conor Cosgrave, Emmett Lawlor                             */
+/*                Conor Cosgrave, Emmett Lawlor                             */
 /*                                                                          */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
+
+/* 
+Done:	
+ParseProgram
+ParseDeclarations
+ParseBlock
+
+
+/*
+
+
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -87,7 +98,8 @@ PUBLIC int main ( int argc, char *argv[] )
 /*  ParseProgram implements:                                                */
 /*                                                                          */
 /*       <Program>  :==  "PROGRAM" <Identifier> ";"                         */
-/*                       [ <Declarations> ] <Block>  "."                    */
+/*                       [ <Declarations> ] {<ProcDeclaration>}             */
+/*						 <Block>  "."                                       */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -111,7 +123,10 @@ PRIVATE void ParseProgram( void )
     /* <Declarations>, if present, begins with a "VAR" token.               */
 
     if ( CurrentToken.code == VAR )  ParseDeclarations();
-
+	
+	// Recursive ProcDeclaration
+	while (CurrentToken.code == PROCEDURE )  ParseProcDeclaration();
+	
     ParseBlock();
     Accept( ENDOFPROGRAM );     /* Token "." has name ENDOFPROGRAM          */
 }
