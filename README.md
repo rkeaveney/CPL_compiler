@@ -19,30 +19,39 @@ Given:
 
 Write the following:
 
-parser1.c
-    This is a pure parser for the CPL. This program should accept all syntactically valid CPL programs and reject all invalid ones. On acceptance the program should print "valid", on rejection it should stop parsing at the first syntax error in the CPL source being analysed and print "syntax error". Marks: 5 (5% of total module marks).
-parser2.c
-    This is a pure parser which includes full syntax error detection and recovery. This should report syntax errors by type, recover from them and continue parsing the CPL source being analysed. Marks: 10 (10% of total module marks).
-comp1.c
-    This is a compiler performing syntax and semantic error detection and code generation for the CPL language, excluding procedure definitions. (Please note, comp1 must handle READ and WRITE statements fully. These look like procedure calls syntactically, but they should compile to Read and Write instructions). Marks: 15 (15% of total module marks).
-comp2.c
-    This is a full compiler performing syntax and semantic error detection and code generation for all parts of the CPL language, including procedure definitions with parameters. Marks: 10 (10% of total module marks).
+**parser1.c:**
+
+This is a pure parser for the CPL. This program should accept all syntactically valid CPL programs and reject all invalid ones. On acceptance the program should print "valid", on rejection it should stop parsing at the first syntax error in the CPL source being analysed and print "syntax error". Marks: 5 (5% of total module marks).
+    
+**parser2.c:**
+
+This is a pure parser which includes full syntax error detection and recovery. This should report syntax errors by type, recover from them and continue parsing the CPL source being analysed. Marks: 10 (10% of total module marks).
+    
+**comp1.c:**
+
+This is a compiler performing syntax and semantic error detection and code generation for the CPL language, excluding procedure definitions. (Please note, comp1 must handle READ and WRITE statements fully. These look like procedure calls syntactically, but they should compile to Read and Write instructions). Marks: 15 (15% of total module marks).
+
+**comp2.c:**
+
+This is a full compiler performing syntax and semantic error detection and code generation for all parts of the CPL language, including procedure definitions with parameters. Marks: 10 (10% of total module marks).
+
 
 
 The idea is that you build up the project in small incremental parts. First you write and test parser1.c, when this is working, and has passed all the tests you think appropriate, copy it to parser2.c, and save parser1.c in a safe place. Take the source in file parser2.c, extend this to implement the required parser2 functionality and test it. When you are happy that parser2.c is working properly, copy it to comp1.c, and save parser2.c in a safe place. Extend comp1.c and test, etc.
 
-Each successive part of the project represents a "freeze-point", where you archive a stable version of your work. When you are done, you will have four source files, parser1.c, parser2.c, comp1.c, and comp2.c. These four files are what you submit as your project.   I do not want any object, executable or library files. 
+Each successive part of the project represents a "freeze-point", where you archive a stable version of your work. When you are done, you will have four source files, parser1.c, parser2.c, comp1.c, and comp2.c. **These four files are what you submit as your project.  _I do not want any object, executable or library files._**
 
 You may submit the four source files as separate attachments, or all together in a ".zip" file, a ".tar" file, or ".tgz" (".tar.gz") file.  Please do not submit sources compressed using the rar format.
 
-A note on test cases: I have provided a few test cases for the various parsers and compilers in the software kits. These are designed to give you a start with testing, they are not sufficient to test each part of the project thoroughly. It is up to you to add appropriate test cases to ensure that your code is working well. I will use unseen test cases to check the behaviour of your code when I am grading it.
+**A note on test cases:** I have provided a few test cases for the various parsers and compilers in the software kits. These are designed to give you a start with testing, they are not sufficient to test each part of the project thoroughly. It is up to you to add appropriate test cases to ensure that your code is working well. I will use unseen test cases to check the behaviour of your code when I am grading it.
 
 You may work by yourself on the project, or in a group with one or two others. Include the names and I.D. numbers of all participants in your group at the start of each source file.
 
-The deadline for submission of the CE4717 project is Monday week 12, (19th-April-2021) at 17h00.
+The **deadline for submission** of the CE4717 project is **Monday week 12, (19th-April-2021) at 17h00**.
 
 
-Command-line calling conventions for your project work
+
+Command-line calling conventions for your project work:
 
 I expect the four programs which you submit as your project work to obey the following command-line argument conventions:
 
