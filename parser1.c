@@ -20,9 +20,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "headers/global.h"
-#include "headers/scanner.h"
-#include "headers/line.h"
+#include "global.h"
+#include "scanner.h"
+#include "line.h"
+#include "code.h"
+#include "debug.h"
+#include "sets.h"
+#include "strtab.h"
+#include "symbol.h"
 
 
 /*--------------------------------------------------------------------------*/
@@ -292,13 +297,16 @@ PRIVATE void ParseFormalParameter( void )
 
 PRIVATE void ParseBlock( void )
 {
+	int token;
+
     Accept( BEGIN );
 
     /* EBNF repetition operator {...} implemented as a while-loop.          */
     /* Repetition triggered by a <Statement> in the input stream.           */
     /* A <Statement> starts with a <Variable>, which is an IDENTIFIER.      */
 
-    while ( CurrentToken.code == IDENTIFIER )  {
+    while ( (token = CurrentToken.code) == IDENTIFIER || token == WHILE ||
+    		 token == IF || token == READ || token == WRITE)  {
         ParseStatement();
         Accept( SEMICOLON );
     }
@@ -838,7 +846,6 @@ PRIVATE void ParseRelOp( void )
     else if ( CurrentToken.code == LESS ) Accept( LESS );
     
     else if ( CurrentToken.code == GREATER ) Accept( GREATER );
-    
 }
 
 
