@@ -96,7 +96,7 @@ PUBLIC int main ( int argc, char *argv[] )
         ParseProgram();
         fclose( InputFile );
         fclose( ListFile );
-        printf("ok\n");
+        printf("valid\n");
         return  EXIT_SUCCESS;
     }
     else 
@@ -881,7 +881,7 @@ PRIVATE void ParseRelOp( void )
 PRIVATE void Accept( int ExpectedToken )
 {
     if ( CurrentToken.code != ExpectedToken )  {
-        SyntaxError( ExpectedToken, CurrentToken );
+        //SyntaxError( ExpectedToken, CurrentToken );
         ReadToEndOfFile();
         fclose( InputFile );
         fclose( ListFile );
@@ -965,7 +965,7 @@ PRIVATE int  OpenFiles( int argc, char *argv[] )
 PRIVATE void ReadToEndOfFile( void )
 {
     if ( CurrentToken.code != ENDOFINPUT )  {
-        Error( "Parsing ends here in this program\n", CurrentToken.pos );
+        printf("syntax error\n");
         while ( CurrentToken.code != ENDOFINPUT )  CurrentToken = GetToken();
     }
 }
