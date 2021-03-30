@@ -134,15 +134,15 @@ PRIVATE void SetupSets( void )
 	  WRITE, END );
   InitSet(&StatementFBS, 4, SEMICOLON, ELSE, ENDOFPROGRAM,
 	  ENDOFINPUT );
-  InitSet(&ProgProcDecSet1, 3, "VAR", "PROCEDURE", "BEGIN" );
-  InitSet(&ProgProcDecSet2, 2, "PROCEDURE", "BEGIN" );
-  InitSet(&BlockSet1, 6, "IDENTIFIER", "WHILE", "IF", "READ",
-	  "WRITE", "END");
-  InitSet(&ProgFollowers, 1, ".");
-  InitSet(&BlockFollowers, 3, ".", ";", "ELSE");
-  InitSet(&ProgBeacons, 2, "$", "END" );
-  InitSet(&ProcDecBeacons, 3, "$", "END", ". ");
-  InitSet(&BlockBeacons, 1, "$" );
+  InitSet(&ProgProcDecSet1, 3, VAR, PROCEDURE, BEGIN );
+  InitSet(&ProgProcDecSet2, 2, PROCEDURE, BEGIN );
+  InitSet(&BlockSet1, 6, IDENTIFIER, WHILE, IF, READ,
+	  WRITE, END);
+  InitSet(&ProgFollowers, 1, ENDOFPROGRAM);
+  InitSet(&BlockFollowers, 3, ENDOFPROGRAM, SEMICOLON, ELSE);
+  InitSet(&ProgBeacons, 2, ENDOFINPUT, END );
+  InitSet(&ProcDecBeacons, 3, ENDOFINPUT, END, ENDOFPROGRAM);
+  InitSet(&BlockBeacons, 1, ENDOFINPUT );
   FB_Prog = Union(2, ProgFollowers, ProgBeacons);
   FB_ProcDec = Union(2, ProgFollowers, ProcDecBeacons);
   FB_Block = Union(2, BlockFollowers, BlockBeacons);

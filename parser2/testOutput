@@ -1,0 +1,9 @@
+  1 PROGRAM test5;
+  2 VAR X, Y;
+  3 BEGIN
+  4     READ( X, Y );
+  5     IF X > Y THEN
+  6     BEGIN
+  7         WRITE( X, Y, 1 );
+  8     END;
+  9 END.

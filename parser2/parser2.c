@@ -44,9 +44,14 @@ PRIVATE TOKEN  CurrentToken;       /*  Parser lookahead token.  Updated by  */
                                    /*  routine Accept (below).  Must be     */
                                    /*  initialised before parser starts.    */
 
+/*---------------------------------------------------------------------------
+
+	Declare Sets
+
+----------------------------------------------------------------------------*/
+
 SET StatementFS_aug, StatementFBS, ProgProcDecSet1, ProgProcDecSet2;
-SET BlockSet1, ProgFollowers, BlockFollowers, ProgBeacons;
-SET ProcDecBeacons, BlockBeacons;
+SET BlockSet1;
 SET FB_Prog, FB_ProcDec, FB_Block;
 SET StatementFS_aug, StatementFBS;
 
@@ -85,7 +90,13 @@ PRIVATE void Synchronise( SET *F, SET*FB );
 
 PRIVATE int  OpenFiles( int argc, char *argv[] );
 PRIVATE void Accept( int code );
-/* PRIVATE void ReadToEndOfFile( void ); */
+
+/*---------------------------------------------------------------------------
+
+ Removed ReadToEndOfFile as with the augmented S-Algol system it parses
+ to end of file
+
+----------------------------------------------------------------------------*/
 
 
 /*--------------------------------------------------------------------------*/
@@ -138,14 +149,11 @@ PRIVATE void SetupSets( void )
   InitSet(&ProgProcDecSet2, 2, PROCEDURE, BEGIN );
   InitSet(&BlockSet1, 6, IDENTIFIER, WHILE, IF, READ,
 	  WRITE, END);
-  InitSet(&ProgFollowers, 1, ENDOFPROGRAM);
-  InitSet(&BlockFollowers, 3, ENDOFPROGRAM, SEMICOLON, ELSE);
-  InitSet(&ProgBeacons, 2, ENDOFINPUT, END );
-  InitSet(&ProcDecBeacons, 3, ENDOFINPUT, END, ENDOFPROGRAM);
-  InitSet(&BlockBeacons, 1, ENDOFINPUT );
-  FB_Prog = Union(2, ProgFollowers, ProgBeacons);
-  FB_ProcDec = Union(2, ProgFollowers, ProcDecBeacons);
-  FB_Block = Union(2, BlockFollowers, BlockBeacons);
+/****************************************************************************/
+  InitSet(&FB_Prog, 3, ENDOFPROGRAM, ENDOFINPUT, END);
+  InitSet(&FB_ProcDec, 3, ENDOFPROGRAM, ENDOFINPUT, END);
+  InitSet(&FB_Block, 4, ENDOFINPUT, ELSE, SEMICOLON, ENDOFPROGRAM );
+ 
 }
 
 /*--------------------------------------------------------------------------*/
@@ -1036,37 +1044,4 @@ PRIVATE int  OpenFiles( int argc, char *argv[] )
 }
 
 
-/*--------------------------------------------------------------------------*/
-/*                                                                          */
-/*  ReadToEndOfFile:  Reads all remaining tokens from the input file.       */
-/*              associated input and listing files.                         */
-/*                                                                          */
-/*    This is used to ensure that the listing file refects the entire       */
-/*    input, even after a syntax error (because of crash & burn parsing,    */
-/*    if a routine like this is not used, the listing file will not be      */
-/*    complete.  Note that this routine also reports in the listing file    */
-/*    exactly where the parsing stopped.  Note that this routine is         */
-/*    superfluous in a parser that performs error-recovery.                 */
-/*                                                                          */
-/*                                                                          */
-/*    Inputs:       None                                                    */
-/*                                                                          */
-/*    Outputs:      None                                                    */
-/*                                                                          */
-/*    Returns:      Nothing                                                 */
-/*                                                                          */
-/*    Side Effects: Reads all remaining tokens from the input.  There won't */
-/*                  be any more available input after this routine returns. */
-/*                                                                          */
-/*--------------------------------------------------------------------------*/
-
-/*--------------------------------------------------------------------------*/
-/* PRIVATE void ReadToEndOfFile( void )                                     */
-/* {                                                                        */
-/*    if ( CurrentToken.code != ENDOFINPUT )  {                             */
-/*       Error( "Parsing ends here in this program\n", CurrentToken.pos );  */
-/*    while ( CurrentToken.code != ENDOFINPUT )  CurrentToken = GetToken(); */
-/*    }                                                                     */
-/*  }                                                                       */
-/*--------------------------------------------------------------------------*/
 
