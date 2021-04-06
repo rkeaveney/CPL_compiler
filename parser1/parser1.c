@@ -966,6 +966,7 @@ PRIVATE void ReadToEndOfFile( void )
 {
     if ( CurrentToken.code != ENDOFINPUT )  {
         printf("syntax error\n");
+        Error( "syntax error\n", CurrentToken.pos );
         while ( CurrentToken.code != ENDOFINPUT )  CurrentToken = GetToken();
     }
 }

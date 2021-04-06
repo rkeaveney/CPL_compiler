@@ -17,8 +17,6 @@
 /*--------------------------------------------------------------------------*/
 
 
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -90,13 +88,8 @@ PRIVATE void Synchronise( SET *F, SET*FB );
 
 PRIVATE int  OpenFiles( int argc, char *argv[] );
 PRIVATE void Accept( int code );
+PRIVATE void ReadToEndOfFile( void );
 
-/*---------------------------------------------------------------------------
-
- Removed ReadToEndOfFile as with the augmented S-Algol system it parses
- to end of file
-
-----------------------------------------------------------------------------*/
 
 
 /*--------------------------------------------------------------------------*/
@@ -109,18 +102,20 @@ PRIVATE void Accept( int code );
 
 PUBLIC int main ( int argc, char *argv[] )
 {
-    if ( OpenFiles( argc, argv ) )  {
-        InitCharProcessor( InputFile, ListFile );
-        CurrentToken = GetToken();
-	SetupSets();
-        ParseProgram();
-        fclose( InputFile );
-        fclose( ListFile );
-        printf("ok\n");
-        return  EXIT_SUCCESS;
-    }
-    else 
-        return EXIT_FAILURE;
+    if ( OpenFiles( argc, argv ) )  
+    {
+		InitCharProcessor( InputFile, ListFile );
+		CurrentToken = GetToken();
+		SetupSets();
+		ParseProgram();
+		ReadToEndOfFile();
+		fclose( InputFile );
+		fclose( ListFile );
+		return  EXIT_SUCCESS;
+	}
+	
+	else 
+		return EXIT_FAILURE;
 }
 
 /* ----------------------------------------------------------------------  */
@@ -139,20 +134,15 @@ PUBLIC int main ( int argc, char *argv[] )
 
 PRIVATE void SetupSets( void )
 {
-
-  
-  InitSet(&StatementFS_aug, 6, IDENTIFIER, WHILE, IF, READ,
-	  WRITE, END );
-  InitSet(&StatementFBS, 4, SEMICOLON, ELSE, ENDOFPROGRAM,
-	  ENDOFINPUT );
-  InitSet(&ProgProcDecSet1, 3, VAR, PROCEDURE, BEGIN );
-  InitSet(&ProgProcDecSet2, 2, PROCEDURE, BEGIN );
-  InitSet(&BlockSet1, 6, IDENTIFIER, WHILE, IF, READ,
-	  WRITE, END);
-/****************************************************************************/
-  InitSet(&FB_Prog, 3, ENDOFPROGRAM, ENDOFINPUT, END);
-  InitSet(&FB_ProcDec, 3, ENDOFPROGRAM, ENDOFINPUT, END);
-  InitSet(&FB_Block, 4, ENDOFINPUT, ELSE, SEMICOLON, ENDOFPROGRAM );
+	InitSet(&StatementFS_aug, 6, IDENTIFIER, WHILE, IF, READ, WRITE, END );
+	InitSet(&StatementFBS, 4, SEMICOLON, ELSE, ENDOFPROGRAM, ENDOFINPUT );
+	InitSet(&ProgProcDecSet1, 3, VAR, PROCEDURE, BEGIN );
+	InitSet(&ProgProcDecSet2, 2, PROCEDURE, BEGIN );
+	InitSet(&BlockSet1, 6, IDENTIFIER, WHILE, IF, READ, WRITE, END);
+	
+	InitSet(&FB_Prog, 3, ENDOFPROGRAM, ENDOFINPUT, END);
+	InitSet(&FB_ProcDec, 3, ENDOFPROGRAM, ENDOFINPUT, END);
+	InitSet(&FB_Block, 4, ENDOFINPUT, ELSE, SEMICOLON, ENDOFPROGRAM );
  
 }
 
@@ -175,15 +165,15 @@ PRIVATE void SetupSets( void )
 
 PRIVATE void Synchronise(SET *F, SET *FB)
 {
-  
-  SET S;
+	SET S;
 
-  S = Union( 2, F, FB );
-  if( !InSet( F, CurrentToken.code ) ){
-    SyntaxError2( *F, CurrentToken );
-    while( !InSet( &S, CurrentToken.code ) )
-      CurrentToken = GetToken();
-  }
+	S = Union( 2, F, FB );
+	if( !InSet( F, CurrentToken.code ) )
+	{
+    	SyntaxError2( *F, CurrentToken );
+		while( !InSet( &S, CurrentToken.code ) )
+			CurrentToken = GetToken();
+	}
 }
 
 /*--------------------------------------------------------------------------*/
@@ -217,21 +207,21 @@ PRIVATE void ParseProgram( void )
     Accept( IDENTIFIER );
     Accept( SEMICOLON );
 
-    /* EBNF "zero or one of" operation: [...] implemented as if-statement.  */
-    /* Operation triggered by a <Declarations> block in the input stream.   */
-    /* <Declarations>, if present, begins with a "VAR" token.               */
-
     /* Synchronise ParseProgramSet1, Followers, Beacons */
     Synchronise( &ProgProcDecSet1, &FB_Prog );
+    
     if ( CurrentToken.code == VAR )  ParseDeclarations();
-    /* Synchronise ParseProgramSet2, Followers, Beacons */
-    Synchronise( &ProgProcDecSet2, &FB_Prog );
+    	/* Synchronise ParseProgramSet2, Followers, Beacons */
+    	Synchronise( &ProgProcDecSet2, &FB_Prog );
+    
     /*  Recursive ProcDeclaration                       */
-    while (CurrentToken.code == PROCEDURE ){
-      ParseProcDeclaration();
-    /* Synchronise ParseProgramSet2, Followers, Beacons */
-      Synchronise( &ProgProcDecSet2, &FB_Prog );
-    }	
+    while (CurrentToken.code == PROCEDURE )
+    {
+		ParseProcDeclaration();
+    	/* Synchronise ParseProgramSet2, Followers, Beacons */
+		Synchronise( &ProgProcDecSet2, &FB_Prog );
+    }
+    
     ParseBlock();
     Accept( ENDOFPROGRAM );     /* Token "." has name ENDOFPROGRAM          */
 }
@@ -257,10 +247,7 @@ PRIVATE void ParseProgram( void )
 PRIVATE void ParseDeclarations( void )
 {
     Accept( VAR );
-    Accept( IDENTIFIER );   /* <Variable> is just a remaning of IDENTIFIER. */
-    
-    /* EBNF repetition operator {...} implemented as a while-loop.          */
-    /* Repetition triggered by "," (i.e, COMMA) in lookahead.               */
+    Accept( IDENTIFIER );
 
     while ( CurrentToken.code == COMMA ) {
         Accept( COMMA );
@@ -392,12 +379,9 @@ PRIVATE void ParseBlock( void )
 {
 	int token;
 
-    Accept( BEGIN );
-    Synchronise( &StatementFS_aug, &StatementFBS );
-    Synchronise( &BlockSet1, &FB_Block );
-    /* EBNF repetition operator {...} implemented as a while-loop.          */
-    /* Repetition triggered by a <Statement> in the input stream.           */
-    /* A <Statement> starts with a <Variable>, which is an IDENTIFIER.      */
+	Accept( BEGIN );
+	Synchronise( &StatementFS_aug, &StatementFBS );
+	Synchronise( &BlockSet1, &FB_Block );
 
     while ( (token = CurrentToken.code) == IDENTIFIER || token == WHILE ||
     		 token == IF || token == READ || token == WRITE)  {
@@ -976,24 +960,24 @@ PRIVATE void ParseRelOp( void )
 
 PRIVATE void Accept( int ExpectedToken )
 {
-  static int recovering = 0;
+	static int recovering = 0;
   
-/* Error re-sync code */
-  if( recovering ){            
-    while( CurrentToken.code != ExpectedToken &&
-	   CurrentToken.code != ENDOFINPUT )
-      CurrentToken = GetToken();
-    recovering = 0;
-  }
+	/* Error re-sync code */
+	if( recovering )
+	{            
+    	while( CurrentToken.code != ExpectedToken &&
+    		   CurrentToken.code != ENDOFINPUT )
+    		CurrentToken = GetToken();
+    	recovering = 0;
+	}
 
-/* Normal Accept code */
-  if( CurrentToken.code != ExpectedToken )
-    {
-        SyntaxError( ExpectedToken, CurrentToken );
-        recovering = 1;
-  }  
-    else
-      CurrentToken = GetToken();
+	/* Normal Accept code */
+	if( CurrentToken.code != ExpectedToken )
+	{
+		SyntaxError( ExpectedToken, CurrentToken );
+		recovering = 1;
+	}  
+	else CurrentToken = GetToken();
 }
 
 
@@ -1044,4 +1028,35 @@ PRIVATE int  OpenFiles( int argc, char *argv[] )
 }
 
 
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*  ReadToEndOfFile:  Reads all remaining tokens from the input file.       */
+/*              associated input and listing files.                         */
+/*                                                                          */
+/*    This is used to ensure that the listing file refects the entire       */
+/*    input, even after a syntax error (because of crash & burn parsing,    */
+/*    if a routine like this is not used, the listing file will not be      */
+/*    complete.  Note that this routine also reports in the listing file    */
+/*    exactly where the parsing stopped.  Note that this routine is         */
+/*    superfluous in a parser that performs error-recovery.                 */
+/*                                                                          */
+/*                                                                          */
+/*    Inputs:       None                                                    */
+/*                                                                          */
+/*    Outputs:      None                                                    */
+/*                                                                          */
+/*    Returns:      Nothing                                                 */
+/*                                                                          */
+/*    Side Effects: Reads all remaining tokens from the input.  There won't */
+/*                  be any more available input after this routine returns. */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
 
+
+PRIVATE void ReadToEndOfFile( void )
+{
+    if ( CurrentToken.code != ENDOFINPUT )  {
+        Error( "Parsing ends here in this program\n", CurrentToken.pos );
+        while ( CurrentToken.code != ENDOFINPUT )  CurrentToken = GetToken();
+    }
+}
