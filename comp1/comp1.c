@@ -38,6 +38,9 @@ PRIVATE FILE *ListFile;            /*  For nicely-formatted syntax errors.  */
 PRIVATE TOKEN  CurrentToken;       /*  Parser lookahead token.  Updated by  */
                                    /*  routine Accept (below).  Must be     */
                                    /*  initialised before parser starts.    */
+                                   
+
+PRIVATE int scope;
 
 /*---------------------------------------------------------------------------
 
@@ -45,10 +48,10 @@ PRIVATE TOKEN  CurrentToken;       /*  Parser lookahead token.  Updated by  */
 
 ----------------------------------------------------------------------------*/
 
-SET StatementFS_aug, StatementFBS, ProgProcDecSet1, ProgProcDecSet2;
-SET BlockSet1;
-SET FB_Prog, FB_ProcDec, FB_Block;
-SET StatementFS_aug, StatementFBS;
+PRIVATE SET StatementFS_aug, StatementFBS, ProgProcDecSet1, ProgProcDecSet2;
+PRIVATE SET BlockSet1;
+PRIVATE SET FB_Prog, FB_ProcDec, FB_Block;
+PRIVATE SET StatementFS_aug, StatementFBS;
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -87,6 +90,8 @@ PRIVATE int  OpenFiles( int argc, char *argv[] );
 PRIVATE void Accept( int code );
 PRIVATE void ReadToEndOfFile( void );
 
+PRIVATE void MakeSymbolTableEntry ( int symtype );
+PRIVATE SYMBOL *LookupSymbol ( void );
 
 
 /*--------------------------------------------------------------------------*/
@@ -244,10 +249,12 @@ PRIVATE void ParseProgram( void )
 PRIVATE void ParseDeclarations( void )
 {
     Accept( VAR );
+    MakeSymbolTableEntry ( STYPE_VARIABLE );
     Accept( IDENTIFIER );
 
     while ( CurrentToken.code == COMMA ) {
         Accept( COMMA );
+    	MakeSymbolTableEntry ( STYPE_VARIABLE );
         Accept( IDENTIFIER );
     }
     Accept( SEMICOLON );
@@ -278,23 +285,36 @@ PRIVATE void ParseDeclarations( void )
 PRIVATE void ParseProcDeclaration( void )
 {
     Accept( PROCEDURE );
+    MakeSymbolTableEntry ( STYPE_PROCEDURE );
     Accept( IDENTIFIER );
+    
+    scope++;
 
-    if ( CurrentToken.code == LEFTPARENTHESIS ) {
+    if ( CurrentToken.code == LEFTPARENTHESIS ) 
+    {
     	ParseParameterList();
     }
     Accept( SEMICOLON );
     
     Synchronise( &ProgProcDecSet1, &FB_ProcDec ); 
-    if ( CurrentToken.code == VAR ) {
+    
+    if ( CurrentToken.code == VAR ) 
+    {
     	ParseDeclarations();
     }
+    
     Synchronise( &ProgProcDecSet2, &FB_ProcDec );
-    while ( CurrentToken.code == PROCEDURE )  ParseProcDeclaration();
+    
+    while ( CurrentToken.code == PROCEDURE )  
+    	ParseProcDeclaration();
+    	
     Synchronise( &ProgProcDecSet2, &FB_ProcDec );    
     ParseBlock();
     
     Accept( SEMICOLON );
+    
+    RemoveSymbols( scope );
+    scope--;
 }
 
 
@@ -824,24 +844,29 @@ PRIVATE void ParseBooleanExpression( void )
 
 PRIVATE void ParseSubTerm( void )
 {
-    /* EBNF "or" operator: "|" implemented as an if-else block. If-path     */
-    /* triggered by a <Variable> in the input stream, which is just an      */
-    /* <Identifier>, i.e., token IDENTIFIER.  Else-path is taken otherwise. */
-    /* N.B., in the case of a syntax-error, this error will be reported as  */
-    /* "INTCONST expected" because of this behaviour.                       */
-
-    /*  Variable */
-    if ( CurrentToken.code == IDENTIFIER )  Accept( IDENTIFIER );
-    
-    /* Int Const */
-    else if (CurrentToken.code == INTCONST )  Accept( INTCONST );
-    
-    /* Expression */
-    else {
-    Accept( LEFTPARENTHESIS );
-    ParseExpression();
-    Accept( RIGHTPARENTHESIS );
-    }
+	SYMBOL *var;
+	
+	switch ( CurrentToken.code )
+	{
+		case INTCONST :				/* Int Const */
+			Accept( INTCONST );
+			break;
+		
+		case LEFTPARENTHESIS :		/* Expression */
+			Accept( LEFTPARENTHESIS );
+    		ParseExpression();
+    		Accept( RIGHTPARENTHESIS );
+    		break;
+    		
+    	
+    	case IDENTIFIER :			/*  Variable */
+    	default :
+    		var - LookupSymbol();
+    		Accept( IDENTIFIER );
+    		if ( var != NULL )
+    			Emit ( I_LOADA, var -> address );
+    		break;
+	}
 }
 
 
@@ -1058,3 +1083,137 @@ PRIVATE void ReadToEndOfFile( void )
         while ( CurrentToken.code != ENDOFINPUT )  CurrentToken = GetToken();
     }
 }
+
+
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*  LookupSymbol:  Gets 's' field from item in lookahead                    */
+/*              (i.e.: CurrentToken.s), and then searches for               */
+/*               a SYMBOL in Symbol Table which has this name.              */
+/*                                                                          */
+/*                                                                          */
+/*                                                                          */
+/*                                                                          */
+/*    Inputs:       None                                                    */
+/*                                                                          */
+/*    Outputs:      None                                                    */
+/*                                                                          */
+/*    Returns:      Stack Pointer variable, sptr                            */
+/*                                                                          */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
+
+
+PRIVATE SYMBOL *LookupSymbol ( void )
+{
+	SYMBOL *sptr;
+	
+	if ( CurrentToken.code == IDENTIFIER )
+	{
+		sptr = Probe ( CurrentToken.s, NULL );
+		if ( sptr == NULL )
+		{
+			Error ( "Identifier not declared", CurrentToken.pos );
+			KillCodeGeneration();
+		}
+	}
+	else sptr = NULL;
+	
+	return sptr;
+}
+
+
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*  MakeSymbolTableEntry:   Creates symbol table entry for either a         */
+/*                          program, variable or procedure                  */
+/*                                                                          */
+/*                                                                          */
+/*                                                                          */
+/*                                                                          */
+/*                                                                          */
+/*    Inputs:       symtype                                                 */
+/*                                                                          */
+/*    Outputs:      None                                                    */
+/*                                                                          */
+/*    Returns:      None                                                    */
+/*                                                                          */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
+
+
+PRIVATE void MakeSymbolTableEntry ( int symtype )
+{
+	SYMBOL *oldsptr, *newsptr;
+	char *cptr;
+	int hashindex;
+    static int varaddress = 0;
+	
+	if ( CurrentToken.code == IDENTIFIER )
+	{
+		if ( NULL == ( oldsptr = Probe ( CurrentToken.s, &hashindex )) 
+			 ||  oldsptr -> scope < scope )
+		{
+		 	if ( oldsptr == NULL )
+		 		cptr = CurrentToken.s;
+		 	else 
+		 		cptr = oldsptr -> s;
+		 	
+		 	if ( NULL == ( newsptr = EnterSymbol ( cptr, hashindex )))
+		 	{
+		 		Error("Fatal error in EnterSymbol", CurrentToken.pos );
+		 		printf("Fatal error in EnterSymbol. ");
+		 		printf("Compiler must exit immediately\n");
+		 		exit(EXIT_FAILURE);
+		 	}
+		 	else
+			{
+				if ( oldsptr == NULL )
+					PreserveString();
+				
+				newsptr -> scope = scope;
+				newsptr -> type = symtype;
+				
+				if ( symtype == STYPE_VARIABLE )
+				{
+					newsptr -> address = varaddress;
+					varaddress++;
+				}
+				else 
+					newsptr -> address = -1;
+			}
+		}
+		
+		else
+		{
+			Error("Error! Variable already declared", CurrentToken.pos );
+			KillCodeGeneration();
+		}	
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

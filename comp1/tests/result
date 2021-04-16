@@ -1,0 +1,28 @@
+  1 PROGRAM x;
+  2 VAR accumulator;
+  3     !-------------------------------------------------------
+  4     PROCEDURE y;
+  5     VAR alpha, alpha;                   ! duplicate alpha
+  6         !---------------------------------------------------
+  7         PROCEDURE z;
+  8         BEGIN
+  9             IF count <= 3 BEGIN         ! missing THEN
+                              ^
+Syntax: Expected THEN, got BEGIN
+
+ 10                 accumulator := accumulator + 1;
+ 11                 z;
+ 12             END;
+ 13         END;                            ! end of procedure z
+ 14         !---------------------------------------------------
+ 15     BEGIN
+ 16         accumulator := 0;
+ 17         count := 0;
+ 18         z;
+ 19     END;                                ! end of procedure y
+ 20     !-------------------------------------------------------
+ 21 BEGIN
+ 22     y;
+ 23     WRITE( y );
+ 24 END.
+ 25         
