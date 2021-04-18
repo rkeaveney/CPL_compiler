@@ -1,0 +1,36 @@
+  1 PROGRAM test4;
+  2 VAR x;
+  3 BEGIN
+  4     READ( x );
+  5     WHILE x >= 0 DO
+  6     BEGIN
+  7         IF x >= 10 THEN
+  8         BEGIN
+  9             WRITE( x, 10, x - 10 );
+ 10         END
+ 11         ELSE 
+ 12         BEGIN
+            ^
+Syntax: Expected Identifier, got BEGIN
+
+ 13             WRITE( x, 10, 10 - x );
+                        ^
+Syntax: Expected BEGIN, got ,
+
+                        ^
+Syntax: Expected one of: END IF READ WHILE WRITE Identifier : got ,
+
+                                     ^
+Syntax: Expected ;, got )
+
+                                     ^
+Syntax: Expected one of: END IF READ WHILE WRITE Identifier : got )
+
+                                      ^
+Syntax: Expected one of: END IF READ WHILE WRITE Identifier : got ;
+
+ 14         END;
+ 15         READ( x );
+ 16     END;
+ 17     WRITE( -4 );
+ 18 END.

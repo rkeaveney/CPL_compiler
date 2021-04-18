@@ -34,6 +34,7 @@
 
 PRIVATE FILE *InputFile;           /*  CPL source comes from here.          */
 PRIVATE FILE *ListFile;            /*  For nicely-formatted syntax errors.  */
+PRIVATE FILE *CodeFile;            /*  For nicely-formatted syntax errors.  */
 
 PRIVATE TOKEN  CurrentToken;       /*  Parser lookahead token.  Updated by  */
                                    /*  routine Accept (below).  Must be     */
@@ -79,10 +80,10 @@ PRIVATE void ParseExpression( void );
 PRIVATE void ParseCompoundTerm( void );
 PRIVATE void ParseTerm( void );
 PRIVATE void ParseSubTerm( void );
-PRIVATE void ParseBooleanExpression( void );
+PRIVATE int ParseBooleanExpression( void );
 PRIVATE void ParseAddOp( void );
 PRIVATE void ParseMultOp( void );
-PRIVATE void ParseRelOp( void );
+PRIVATE int ParseRelOp( void );
 PRIVATE void SetupSets( void );
 PRIVATE void Synchronise( SET *F, SET*FB );
 
@@ -107,9 +108,11 @@ PUBLIC int main ( int argc, char *argv[] )
     if ( OpenFiles( argc, argv ) )  
     {
 		InitCharProcessor( InputFile, ListFile );
+		InitCodeGenerator(CodeFile); // initialise the code generator
 		CurrentToken = GetToken();
 		SetupSets();
 		ParseProgram();
+		WriteCodeFile(); // write assembly code and close it.
 		ReadToEndOfFile();
 		fclose( InputFile );
 		fclose( ListFile );
@@ -594,10 +597,15 @@ PRIVATE void ParseActualParameter( void )
 
 PRIVATE void ParseWhileStatement( void )
 {
+	int Label1, Label2, L2BackPatchLoc;
     Accept( WHILE );
-    ParseBooleanExpression();
+	Label1 = CurrentCodeAddress();
+	L2BackPatchLoc = ParseBooleanExpression();
     Accept( DO );
     ParseBlock();
+	Emit(I_BR, Label1);
+	Label2 = CurrentCodeAddress();
+	BackPatch(L2BackPatchLoc, Label2);
 }
 
 
@@ -621,15 +629,22 @@ PRIVATE void ParseWhileStatement( void )
 
 PRIVATE void ParseIfStatement( void )
 {
+	int Label1, L1BackPatchLoc, Label2, L2BackPatchLoc;
     Accept( IF );
-    ParseBooleanExpression();
+	Label1 = CurrentCodeAddress();
+    L1BackPatchLoc = ParseBooleanExpression();
     Accept( THEN );
     ParseBlock();
-    
+	Emit(I_BR, Label1);
+	BackPatch(L1BackPatchLoc, Label1);
     if (CurrentToken.code == ELSE )  {
     	Accept( ELSE );
+		Label2 = CurrentCodeAddress();
+		L2BackPatchLoc = ParseBooleanExpression();
     	ParseBlock();
-    }
+		Emit(I_BR, Label2); // Not sure if this should be I_BR?
+		BackPatch(L2BackPatchLoc, Label2);
+	}
 }
 
 
@@ -717,16 +732,19 @@ PRIVATE void ParseWriteStatement( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
+// fixed to implement infix to postfix conversion and code generation
 PRIVATE void ParseExpression( void )
 {
-    int token;
+    int op;
 
     ParseCompoundTerm();
 
-    while ( (token = CurrentToken.code) == ADD ||    /* ADD: name for "+".  */
-            token == SUBTRACT ) {                    /* SUBTRACT: "-".      */
+    while ( (op = CurrentToken.code) == ADD ||    /* ADD: name for "+".  */
+            op == SUBTRACT ) {                    /* SUBTRACT: "-".      */
         ParseAddOp();
         ParseCompoundTerm();
+
+		if ( op == ADD) _Emit( I_ADD ); else _Emit(I_SUB);
     }
 }
 
@@ -758,6 +776,8 @@ PRIVATE void ParseCompoundTerm( void )
             token == DIVIDE ) {
         ParseMultOp();
         ParseTerm();
+
+		if(token = MULTIPLY) _Emit( I_MULT ); else _Emit( I_DIV );
     }
 }
 
@@ -786,10 +806,16 @@ PRIVATE void ParseTerm( void )
     /* <Identifier>, i.e., token IDENTIFIER.  Else-path is taken otherwise. */
     /* N.B., in the case of a syntax-error, this error will be reported as  */
     /* "INTCONST expected" because of this behaviour.                       */
+	int negateflag = 0;
 
-    if ( CurrentToken.code == SUBTRACT )  Accept( SUBTRACT );
+    if ( CurrentToken.code == SUBTRACT ) {
+		negateflag = 1;
+		Accept( SUBTRACT );
+	}
     
     ParseSubTerm();
+
+	if(negateflag) _Emit(I_NEG);
 }
 
 
@@ -810,17 +836,21 @@ PRIVATE void ParseTerm( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void ParseBooleanExpression( void )
+PRIVATE int ParseBooleanExpression( void )
 {
     /* EBNF "or" operator: "|" implemented as an if-else block. If-path     */
     /* triggered by a <Variable> in the input stream, which is just an      */
     /* <Identifier>, i.e., token IDENTIFIER.  Else-path is taken otherwise. */
     /* N.B., in the case of a syntax-error, this error will be reported as  */
     /* "INTCONST expected" because of this behaviour.                       */
-
+	int BackPatchAddr, RelOpInstruction;
     ParseExpression();
-    ParseRelOp();
+    RelOpInstruction = ParseRelOp();
     ParseExpression();
+	_Emit(I_SUB);
+	BackPatchAddr = CurrentCodeAddress();
+	Emit(RelOpInstruction, 9999);
+	return BackPatchAddr;
 }
 
 
@@ -849,6 +879,7 @@ PRIVATE void ParseSubTerm( void )
 	switch ( CurrentToken.code )
 	{
 		case INTCONST :				/* Int Const */
+			Emit(I_LOADI, CurrentToken.value);
 			Accept( INTCONST );
 			break;
 		
@@ -861,11 +892,12 @@ PRIVATE void ParseSubTerm( void )
     	
     	case IDENTIFIER :			/*  Variable */
     	default :
-    		var - LookupSymbol();
+    		var = LookupSymbol();
     		Accept( IDENTIFIER );
     		if ( var != NULL )
     			Emit ( I_LOADA, var -> address );
     		break;
+		
 	}
 }
 
@@ -931,23 +963,38 @@ PRIVATE void ParseMultOp( void )
 /*                                                                          */
 /*    Outputs:      None                                                    */
 /*                                                                          */
-/*    Returns:      Nothing                                                 */
+/*    Returns:      Int RelOpInstruction                                                 */
 /*                                                                          */
 /*    Side Effects: Lookahead token advanced.                               */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void ParseRelOp( void )
+PRIVATE int ParseRelOp( void )
 {
-    if ( CurrentToken.code == EQUALITY ) Accept( EQUALITY );
-    
-    else if ( CurrentToken.code == LESSEQUAL ) Accept( LESSEQUAL );
-    
-    else if ( CurrentToken.code == GREATEREQUAL ) Accept( GREATEREQUAL );
-    
-    else if ( CurrentToken.code == LESS ) Accept( LESS );
-    
-    else if ( CurrentToken.code == GREATER ) Accept( GREATER );
+	int RelOpInstruction;
+	switch(CurrentToken.code) {
+		case LESSEQUAL:
+			RelOpInstruction = I_BG; 
+			Accept(LESSEQUAL);
+			break;
+		case GREATEREQUAL:
+			RelOpInstruction = I_BL; 
+			Accept(GREATEREQUAL);
+			break;
+		case LESS:
+			RelOpInstruction = I_BGZ; 
+			Accept(LESS);
+			break;
+		case EQUALITY:
+			RelOpInstruction = I_BZ; 
+			Accept(EQUALITY);
+			break;
+		case GREATER:
+			RelOpInstruction = I_BLZ; 
+			Accept(GREATER);
+			break;
+	}
+	return RelOpInstruction;
 }
 
 
@@ -1009,7 +1056,7 @@ PRIVATE void Accept( int ExpectedToken )
 /*              associated input and listing files.                         */
 /*                                                                          */
 /*    Note that this routine modifies the globals "InputFile" and           */
-/*    "ListingFile".  It returns 1 ("true" in C-speak) if the input and     */
+/*    "ListingFile" and "CodeFile".  It returns 1 ("true" in C-speak) if the input and     */
 /*    listing files are successfully opened, 0 if not, allowing the caller  */
 /*    to make a graceful exit if the opening process failed.                */
 /*                                                                          */
@@ -1030,8 +1077,8 @@ PRIVATE void Accept( int ExpectedToken )
 PRIVATE int  OpenFiles( int argc, char *argv[] )
 {
 
-    if ( argc != 3 )  {
-        fprintf( stderr, "%s <inputfile> <listfile>\n", argv[0] );
+    if ( argc != 4 )  {
+        fprintf( stderr, "%s <inputfile> <listfile> <codefile>\n", argv[0] );
         return 0;
     }
 
@@ -1042,6 +1089,12 @@ PRIVATE int  OpenFiles( int argc, char *argv[] )
 
     if ( NULL == ( ListFile = fopen( argv[2], "w" ) ) )  {
         fprintf( stderr, "cannot open \"%s\" for output\n", argv[2] );
+        fclose( InputFile );
+        return 0;
+    }
+	// Added for Initialise Codegenerator, where the assembly code is written
+    if ( NULL == ( CodeFile = fopen( argv[3], "w" ) ) )  {
+        fprintf( stderr, "cannot open \"%s\" for CodeFile = \n", argv[3] );
         fclose( InputFile );
         return 0;
     }

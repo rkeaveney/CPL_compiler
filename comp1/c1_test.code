@@ -1,0 +1,20 @@
+  0  Load  0   
+  1  Load  #0   
+  2  Sub
+  3  Bl    18  
+  4  Load  0   
+  5  Load  #10  
+  6  Sub
+  7  Bl    4   
+  8  Load  0   
+  9  Load  #10  
+ 10  Load  0   
+ 11  Load  #10  
+ 12  Sub
+ 13  Br    4   
+ 14  Sub
+ 15  Bnz   14  
+ 16  Br    14  
+ 17  Br    0   
+ 18  Load  #4   
+ 19  Neg
