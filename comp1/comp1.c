@@ -639,10 +639,10 @@ PRIVATE void ParseIfStatement( void )
 	BackPatch(L1BackPatchLoc, Label1);
     if (CurrentToken.code == ELSE )  {
     	Accept( ELSE );
+    	ParseBlock();
 		Label2 = CurrentCodeAddress();
 		L2BackPatchLoc = ParseBooleanExpression();
-    	ParseBlock();
-		Emit(I_BR, Label2); // Not sure if this should be I_BR?
+		Emit(I_BR, Label2);
 		BackPatch(L2BackPatchLoc, Label2);
 	}
 }

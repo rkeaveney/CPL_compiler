@@ -12,19 +12,7 @@
  12         BEGIN
  13             WRITE( x, 10, 10 - x );
  14         END;
-               ^
-Syntax: Expected Identifier, got ;
-
  15         READ( x );
-                    ^
-Syntax: Expected ;, got )
-
-                    ^
-Syntax: Expected one of: END IF READ WHILE WRITE Identifier : got )
-
-                     ^
-Syntax: Expected one of: END IF READ WHILE WRITE Identifier : got ;
-
  16     END;
  17     WRITE( -4 );
  18 END.
