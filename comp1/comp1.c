@@ -68,7 +68,7 @@ PRIVATE void ParseFormalParameter( void );
 PRIVATE void ParseBlock( void );
 PRIVATE void ParseStatement( void );
 PRIVATE void ParseSimpleStatement( void );
-PRIVATE void ParseRestOfStatement( void );
+PRIVATE void ParseRestOfStatement( SYMBOL *target );
 PRIVATE void ParseProcCallList( void );
 PRIVATE void ParseAssignment( void );
 PRIVATE void ParseActualParameter( void );
@@ -467,8 +467,11 @@ PRIVATE void ParseStatement( void )
 
 PRIVATE void ParseSimpleStatement( void )
 {
+	SYMBOL *target;
+	
+	target = LookupSymbol(); 
 	Accept( IDENTIFIER );
-	ParseRestOfStatement();
+	ParseRestOfStatement( target );
 }
 
 
@@ -489,11 +492,34 @@ PRIVATE void ParseSimpleStatement( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void ParseRestOfStatement( void )
+PRIVATE void ParseRestOfStatement( SYMBOL *target )
 {
-	if ( CurrentToken.code == LEFTPARENTHESIS ) ParseProcCallList();
-	
-	else if ( CurrentToken.code == ASSIGNMENT ) ParseAssignment();
+	switch ( CurrentToken.code )
+	{
+		case LEFTPARENTHESIS :
+			ParseProcCallList();
+			
+		case SEMICOLON :
+			if ( target != NULL && target->type == STYPE_PROCEDURE )
+				Emit ( I_CALL, target->address );
+			else
+			{
+				Error( "Not a procedure\n", CurrentToken.pos );
+				KillCodeGeneration();
+			}
+			break;
+		
+		case ASSIGNMENT : 
+			ParseAssignment();
+			if ( target != NULL && target->type == STYPE_VARIABLE )
+				Emit ( I_STOREA, target->address );
+			else
+			{
+				Error( "Undeclared variable\n", CurrentToken.pos );
+				KillCodeGeneration();
+			}
+			break;
+	}
 }
 
 
@@ -547,7 +573,7 @@ PRIVATE void ParseProcCallList( void )
 
 PRIVATE void ParseAssignment( void )
 {
-	Accept(ASSIGNMENT);
+	Accept( ASSIGNMENT );
 	ParseExpression();
 }
 
@@ -739,12 +765,14 @@ PRIVATE void ParseExpression( void )
 
     ParseCompoundTerm();
 
-    while ( (op = CurrentToken.code) == ADD ||    /* ADD: name for "+".  */
-            op == SUBTRACT ) {                    /* SUBTRACT: "-".      */
+    while ( (op = CurrentToken.code) == ADD ||		/* ADD: name for "+".  */
+			op == SUBTRACT )						/* SUBTRACT: "-".      */
+    {
         ParseAddOp();
         ParseCompoundTerm();
 
-		if ( op == ADD) _Emit( I_ADD ); else _Emit(I_SUB);
+		if ( op == ADD) _Emit( I_ADD ); 
+		else _Emit(I_SUB);
     }
 }
 
@@ -777,7 +805,8 @@ PRIVATE void ParseCompoundTerm( void )
         ParseMultOp();
         ParseTerm();
 
-		if(token = MULTIPLY) _Emit( I_MULT ); else _Emit( I_DIV );
+		if(token = MULTIPLY) _Emit( I_MULT ); 
+		else _Emit( I_DIV );
     }
 }
 
@@ -801,11 +830,6 @@ PRIVATE void ParseCompoundTerm( void )
 
 PRIVATE void ParseTerm( void )
 {
-    /* EBNF "or" operator: "|" implemented as an if-else block. If-path     */
-    /* triggered by a <Variable> in the input stream, which is just an      */
-    /* <Identifier>, i.e., token IDENTIFIER.  Else-path is taken otherwise. */
-    /* N.B., in the case of a syntax-error, this error will be reported as  */
-    /* "INTCONST expected" because of this behaviour.                       */
 	int negateflag = 0;
 
     if ( CurrentToken.code == SUBTRACT ) {
@@ -838,11 +862,6 @@ PRIVATE void ParseTerm( void )
 
 PRIVATE int ParseBooleanExpression( void )
 {
-    /* EBNF "or" operator: "|" implemented as an if-else block. If-path     */
-    /* triggered by a <Variable> in the input stream, which is just an      */
-    /* <Identifier>, i.e., token IDENTIFIER.  Else-path is taken otherwise. */
-    /* N.B., in the case of a syntax-error, this error will be reported as  */
-    /* "INTCONST expected" because of this behaviour.                       */
 	int BackPatchAddr, RelOpInstruction;
     ParseExpression();
     RelOpInstruction = ParseRelOp();
@@ -856,7 +875,7 @@ PRIVATE int ParseBooleanExpression( void )
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  ParseTerm implements:                                                   */
+/*  ParseSubTerm implements:                                                   */
 /*                                                                          */
 /*       <SubTerm>  :==   <Variable> | <IntConst> | "(" <Expression> ")"    */
 /*                                                                          */
@@ -878,6 +897,19 @@ PRIVATE void ParseSubTerm( void )
 	
 	switch ( CurrentToken.code )
 	{
+		case IDENTIFIER :			/*  Variable */
+    	default :
+    		var = LookupSymbol();
+    		if ( var != NULL && var->type == STYPE_VARIABLE )
+    			Emit ( I_LOADA, var -> address );
+    		else
+    		{
+				Error( "Undeclared variable\n", CurrentToken.pos );
+				KillCodeGeneration();
+    		}
+    		Accept( IDENTIFIER );
+    		break;
+	
 		case INTCONST :				/* Int Const */
 			Emit(I_LOADI, CurrentToken.value);
 			Accept( INTCONST );
@@ -888,23 +920,13 @@ PRIVATE void ParseSubTerm( void )
     		ParseExpression();
     		Accept( RIGHTPARENTHESIS );
     		break;
-    		
-    	
-    	case IDENTIFIER :			/*  Variable */
-    	default :
-    		var = LookupSymbol();
-    		Accept( IDENTIFIER );
-    		if ( var != NULL )
-    			Emit ( I_LOADA, var -> address );
-    		break;
-		
 	}
 }
 
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  ParseExpression implements:                                             */
+/*  ParseAddOp implements:                                             */
 /*                                                                          */
 /*       <AddOp>  :==   "+" | "-"      */
 /*                                                                          */
@@ -929,7 +951,7 @@ PRIVATE void ParseAddOp( void )
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  ParseExpression implements:                                             */
+/*  ParseMultOp implements:                                             */
 /*                                                                          */
 /*       <MultOp>  :==   "*" | "/"                                          */
 /*                                                                          */
@@ -954,7 +976,7 @@ PRIVATE void ParseMultOp( void )
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  ParseExpression implements:                                             */
+/*  ParseRelOp implements:                                             */
 /*                                                                          */
 /*       <RelOp>  :==   "=" | "<=" | ">=" | "<" | ">"                       */
 /*                                                                          */
