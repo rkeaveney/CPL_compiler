@@ -655,22 +655,23 @@ PRIVATE void ParseWhileStatement( void )
 
 PRIVATE void ParseIfStatement( void )
 {
-	int Label1, L1BackPatchLoc, Label2, L2BackPatchLoc;
+	int L1BackPatchLoc, L2BackPatchLoc;
     Accept( IF );
-	Label1 = CurrentCodeAddress();
     L1BackPatchLoc = ParseBooleanExpression();
     Accept( THEN );
     ParseBlock();
-	Emit(I_BR, Label1);
-	BackPatch(L1BackPatchLoc, Label1);
-    if (CurrentToken.code == ELSE )  {
+    if ( CurrentToken.code == ELSE )
+    {
+    	L2BackPatchLoc = CurrentCodeAddress();
+    	Emit( I_BR, 999 );	// Branch to TEMP code address, 
+    						// to be backpatched later
+    	BackPatch( L1BackPatchLoc, CurrentCodeAddress() );
     	Accept( ELSE );
     	ParseBlock();
-		Label2 = CurrentCodeAddress();
-		L2BackPatchLoc = ParseBooleanExpression();
-		Emit(I_BR, Label2);
-		BackPatch(L2BackPatchLoc, Label2);
-	}
+    	BackPatch( L2BackPatchLoc, CurrentCodeAddress() );
+    }
+    else 
+    	BackPatch( L1BackPatchLoc, CurrentCodeAddress() );
 }
 
 
@@ -758,7 +759,6 @@ PRIVATE void ParseWriteStatement( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-// fixed to implement infix to postfix conversion and code generation
 PRIVATE void ParseExpression( void )
 {
     int op;
@@ -868,14 +868,15 @@ PRIVATE int ParseBooleanExpression( void )
     ParseExpression();
 	_Emit(I_SUB);
 	BackPatchAddr = CurrentCodeAddress();
-	Emit(RelOpInstruction, 9999);
+	Emit(RelOpInstruction, 999);	// Branch to TEMP code address, 
+    								// to be backpatched later
 	return BackPatchAddr;
 }
 
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  ParseSubTerm implements:                                                   */
+/*  ParseSubTerm implements:                                                */
 /*                                                                          */
 /*       <SubTerm>  :==   <Variable> | <IntConst> | "(" <Expression> ")"    */
 /*                                                                          */
@@ -951,7 +952,7 @@ PRIVATE void ParseAddOp( void )
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  ParseMultOp implements:                                             */
+/*  ParseMultOp implements:                                                 */
 /*                                                                          */
 /*       <MultOp>  :==   "*" | "/"                                          */
 /*                                                                          */
@@ -976,7 +977,7 @@ PRIVATE void ParseMultOp( void )
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  ParseRelOp implements:                                             */
+/*  ParseRelOp implements:                                                  */
 /*                                                                          */
 /*       <RelOp>  :==   "=" | "<=" | ">=" | "<" | ">"                       */
 /*                                                                          */
@@ -985,7 +986,7 @@ PRIVATE void ParseMultOp( void )
 /*                                                                          */
 /*    Outputs:      None                                                    */
 /*                                                                          */
-/*    Returns:      Int RelOpInstruction                                                 */
+/*    Returns:      Int RelOpInstruction                                    */
 /*                                                                          */
 /*    Side Effects: Lookahead token advanced.                               */
 /*                                                                          */
