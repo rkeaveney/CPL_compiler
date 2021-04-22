@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*       comp1.c                                                            */
+/*       comp2.c                                                            */
 /*                                                                          */
 /*                                                                          */
-/*       This is a compiler performing syntax and semantic error            */
-/*       detection and code generation for the CPL language, excluding      */
+/*       This is a full compiler performing syntax and semantic error       */
+/*       detection and code generation for the CPL language, including      */
 /*       procedure definitions.                                             */
 /*                                                                          */
 /*       Authors: Ronan Keaveney, Charlie Gorey O'Neill,                    */
@@ -644,7 +644,7 @@ PRIVATE void ParseWhileStatement( void )
 /*                           <Block> [ "ELSE" <Block> ]                     */
 /*                                                                          */
 /*                                                                          */
-/*    Inputs:       None                                                   */
+/*    Inputs:       None                                                    */
 /*                                                                          */
 /*    Outputs:      None                                                    */
 /*                                                                          */
@@ -706,7 +706,6 @@ PRIVATE void ParseReadStatement( void )
     }
     
     Accept( RIGHTPARENTHESIS );
-	_Emit(I_READ);
 }
 
 
@@ -740,7 +739,6 @@ PRIVATE void ParseWriteStatement( void )
     }
     
     Accept( RIGHTPARENTHESIS );
-	_Emit(I_WRITE);
 }
 
 
