@@ -1,0 +1,27 @@
+  0  Read
+  1  Load  0   
+  2  Load  #0   
+  3  Sub
+  4  Bl    24  
+  5  Load  0   
+  6  Load  #10  
+  7  Sub
+  8  Bl    16  
+  9  Load  0   
+ 10  Load  #10  
+ 11  Load  0   
+ 12  Load  #10  
+ 13  Sub
+ 14  Write
+ 15  Br    22  
+ 16  Load  0   
+ 17  Load  #10  
+ 18  Load  #10  
+ 19  Load  0   
+ 20  Sub
+ 21  Write
+ 22  Read
+ 23  Br    1   
+ 24  Load  #4   
+ 25  Neg
+ 26  Write

@@ -643,7 +643,7 @@ PRIVATE void ParseWhileStatement( void )
 /*                           <Block> [ "ELSE" <Block> ]                     */
 /*                                                                          */
 /*                                                                          */
-/*    Inputs:       None                                                    */
+/*    Inputs:       None                                                   */
 /*                                                                          */
 /*    Outputs:      None                                                    */
 /*                                                                          */
@@ -705,6 +705,7 @@ PRIVATE void ParseReadStatement( void )
     }
     
     Accept( RIGHTPARENTHESIS );
+	_Emit(I_READ);
 }
 
 
@@ -738,6 +739,7 @@ PRIVATE void ParseWriteStatement( void )
     }
     
     Accept( RIGHTPARENTHESIS );
+	_Emit(I_WRITE);
 }
 
 
