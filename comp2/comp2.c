@@ -1,7 +1,7 @@
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
 /*       comp2.c                                                            */
-/*                                                                          */
+/*       23/04/2021                                                                   */
 /*                                                                          */
 /*       This is a full compiler performing syntax and semantic error       */
 /*       detection and code generation for the CPL language, including      */
@@ -34,14 +34,17 @@
 
 PRIVATE FILE *InputFile;           /*  CPL source comes from here.          */
 PRIVATE FILE *ListFile;            /*  For nicely-formatted syntax errors.  */
-PRIVATE FILE *CodeFile;            /*  For nicely-formatted syntax errors.  */
+PRIVATE FILE *CodeFile;			   /* machine code output file */
 
 PRIVATE TOKEN  CurrentToken;       /*  Parser lookahead token.  Updated by  */
                                    /*  routine Accept (below).  Must be     */
                                    /*  initialised before parser starts.    */
-                                   
+PRIVATE int Read;
+PRIVATE int scope;			   
+PRIVATE int Write;                 
+PRIVATE int VarLctn;			   
+PRIVATE int FlagError; 
 
-PRIVATE int scope;
 
 /*---------------------------------------------------------------------------
 
@@ -52,13 +55,15 @@ PRIVATE int scope;
 PRIVATE SET StatementFS_aug, StatementFBS, ProgProcDecSet1, ProgProcDecSet2;
 PRIVATE SET BlockSet1;
 PRIVATE SET FB_Prog, FB_ProcDec, FB_Block;
-PRIVATE SET StatementFS_aug, StatementFBS;
+PRIVATE SET StatementFS_aug2, StatementFBS2;
+
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
 /*  Function prototypes                                                     */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
+
 
 PRIVATE void ParseProgram( void );
 PRIVATE void ParseDeclarations( void );
@@ -80,24 +85,26 @@ PRIVATE void ParseExpression( void );
 PRIVATE void ParseCompoundTerm( void );
 PRIVATE void ParseTerm( void );
 PRIVATE void ParseSubTerm( void );
-PRIVATE int ParseBooleanExpression( void );
 PRIVATE void ParseAddOp( void );
 PRIVATE void ParseMultOp( void );
-PRIVATE int ParseRelOp( void );
 PRIVATE void SetupSets( void );
 PRIVATE void Synchronise( SET *F, SET*FB );
-
-PRIVATE int  OpenFiles( int argc, char *argv[] );
 PRIVATE void Accept( int code );
 PRIVATE void ReadToEndOfFile( void );
+PRIVATE void ParseIntConst(void); 
+PRIVATE void ParseIdentifier(void);
 
-PRIVATE void MakeSymbolTableEntry ( int symtype );
-PRIVATE SYMBOL *LookupSymbol ( void );
+PRIVATE int ParseBooleanExpression( void );
+PRIVATE int ParseRelOp( void );
+PRIVATE int OpenFiles( int argc, char *argv[] );
+
+PRIVATE SYMBOL *MakeSymbolTableEntry(int symtype);
+PRIVATE SYMBOL *LookupSymbol();
 
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  Main: Program entry point.  Sets up parser globals (opens input and     */
+/*  Main: Smallparser entry point.  Sets up parser globals (opens input and */
 /*        output files, initialises current lookahead), then calls          */
 /*        "ParseProgram" to start the parse.                                */
 /*                                                                          */
@@ -105,26 +112,38 @@ PRIVATE SYMBOL *LookupSymbol ( void );
 
 PUBLIC int main ( int argc, char *argv[] )
 {
-    if ( OpenFiles( argc, argv ) )  
+    Write=0;
+    Read = 0;
+    scope = 1;
+    FlagError=0;
+    VarLctn = 0;
+    if ( OpenFiles( argc, argv ) )
     {
-		InitCharProcessor( InputFile, ListFile );
-		InitCodeGenerator(CodeFile); // initialise the code generator
-		CurrentToken = GetToken();
-		SetupSets();
-		ParseProgram();
-		WriteCodeFile(); // write assembly code and close it.
-		ReadToEndOfFile();
-		fclose( InputFile );
-		fclose( ListFile );
-		return  EXIT_SUCCESS;
-	}
-	
-	else 
-		return EXIT_FAILURE;
+        InitCharProcessor( InputFile, ListFile );
+        InitCodeGenerator(CodeFile); /*Initialize code generation*/
+        CurrentToken = GetToken();
+        SetupSets();
+        ParseProgram();
+        WriteCodeFile();  /*Write out assembly to file*/
+        fclose( InputFile );
+        fclose( ListFile );
+        if(FlagError) 
+        {
+            printf("Syntax Error Detected\n");
+            return EXIT_FAILURE;
+        }
+        printf("Valid, No Errors Detected\n");
+        return  EXIT_SUCCESS;
+    }
+    else
+    {
+        printf("Syntax Error Dectected\n"); 
+        return EXIT_FAILURE;
+    }
 }
 
-/* ----------------------------------------------------------------------  */
-/*                                                                         */
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
 /* SetupSets: This function serves the purpose of initializing all         */
 /* the sets used for the Primary Augmented S-Algol Error recovery          */
 /* and resync                                                              */
@@ -133,13 +152,13 @@ PUBLIC int main ( int argc, char *argv[] )
 /*                                                                         */
 /* Outputs: None                                                           */
 /*                                                                         */
-/* Returns: Nothing                                                        */
-/*                                                                         */
-/* ----------------------------------------------------------------------  */
+/* Returns: Nothing                                                   */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
 
-PRIVATE void SetupSets( void )
-{
-	InitSet(&StatementFS_aug, 6, IDENTIFIER, WHILE, IF, READ, WRITE, END );
+PRIVATE void SetupSets(void){
+
+ 	InitSet(&StatementFS_aug, 6, IDENTIFIER, WHILE, IF, READ, WRITE, END );
 	InitSet(&StatementFBS, 4, SEMICOLON, ELSE, ENDOFPROGRAM, ENDOFINPUT );
 	InitSet(&ProgProcDecSet1, 3, VAR, PROCEDURE, BEGIN );
 	InitSet(&ProgProcDecSet2, 2, PROCEDURE, BEGIN );
@@ -148,7 +167,9 @@ PRIVATE void SetupSets( void )
 	InitSet(&FB_Prog, 3, ENDOFPROGRAM, ENDOFINPUT, END);
 	InitSet(&FB_ProcDec, 3, ENDOFPROGRAM, ENDOFINPUT, END);
 	InitSet(&FB_Block, 4, ENDOFINPUT, ELSE, SEMICOLON, ENDOFPROGRAM );
- 
+    InitSet(&StatementFS_aug2, 6, IDENTIFIER, WHILE, IF, READ, WRITE, END );
+	InitSet(&StatementFBS2, 4, SEMICOLON, ELSE, ENDOFPROGRAM, ENDOFINPUT );
+
 }
 
 /*--------------------------------------------------------------------------*/
@@ -164,15 +185,15 @@ PRIVATE void SetupSets( void )
 /*                                                                          */
 /*    Returns:      Nothing                                                 */
 /*                                                                          */
-/*    Side Effects: Lookahead token advanced.                               */
+/*    Side Effects: Lookahead token advanced.                             */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void Synchronise(SET *F, SET *FB)
-{
-	SET S;
+PRIVATE void Synchronise(SET *F, SET *FB){
 
-	S = Union( 2, F, FB );
+    SET S;
+
+   S = Union( 2, F, FB );
 	if( !InSet( F, CurrentToken.code ) )
 	{
     	SyntaxError2( *F, CurrentToken );
@@ -202,15 +223,20 @@ PRIVATE void Synchronise(SET *F, SET *FB)
 /*                                                                          */
 /*    Returns:      Nothing                                                 */
 /*                                                                          */
-/*    Side Effects: Lookahead token advanced.                               */
+/*    Side Effects: Lookahead token advanced.                                                          */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void ParseProgram( void )
+
+
+PRIVATE void ParseProgram(void)
 {
-    Accept( PROGRAM );  
-    Accept( IDENTIFIER );
-    Accept( SEMICOLON );
+
+    Accept(PROGRAM);
+    Accept(IDENTIFIER);
+    Accept(SEMICOLON);
+    
+    MakeSymbolTableEntry(STYPE_PROGRAM);
 
     /* Synchronise ParseProgramSet1, Followers, Beacons */
     Synchronise( &ProgProcDecSet1, &FB_Prog );
@@ -228,9 +254,8 @@ PRIVATE void ParseProgram( void )
     }
     
     ParseBlock();
-    Accept( ENDOFPROGRAM );     /* Token "." has name ENDOFPROGRAM          */
+    Accept( ENDOFPROGRAM );
 }
-
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -245,24 +270,32 @@ PRIVATE void ParseProgram( void )
 /*                                                                          */
 /*    Returns:      Nothing                                                 */
 /*                                                                          */
-/*    Side Effects: Lookahead token advanced.                               */
+/*    Side Effects: Lookahead token advanced.                                                 */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void ParseDeclarations( void )
+PRIVATE int ParseDeclarations(void)
 {
+    int VarCounter = 0;
     Accept( VAR );
-    MakeSymbolTableEntry ( STYPE_VARIABLE );
+    MakeSymbolTableEntry(STYPE_VARIABLE);
     Accept( IDENTIFIER );
 
-    while ( CurrentToken.code == COMMA ) {
-        Accept( COMMA );
-    	MakeSymbolTableEntry ( STYPE_VARIABLE );
+    ParseVariable();
+    VarCounter++;
+    while (CurrentToken.code == COMMA)
+    {
+        Accept(COMMA);
+        MakeSymbolTableEntry(STYPE_VARIABLE);
         Accept( IDENTIFIER );
+        ParseVariable();
+        VarCounter++;
     }
-    Accept( SEMICOLON );
-}
+    
+    Accept(SEMICOLON);
 
+return VarCounter; 
+}
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -281,19 +314,20 @@ PRIVATE void ParseDeclarations( void )
 /*                                                                          */
 /*    Returns:      Nothing                                                 */
 /*                                                                          */
-/*    Side Effects: Lookahead token advanced.                               */
+/*    Side Effects: Lookahead token advanced.                                                */
+/*                                                                          */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void ParseProcDeclaration( void )
+PRIVATE void ParseProcDeclaration(void)
 {
-    Accept( PROCEDURE );
-    MakeSymbolTableEntry ( STYPE_PROCEDURE );
-    Accept( IDENTIFIER );
-    
+    int VarCounter = 0;
+    int Add;
+    SYMBOL *procedure;
+
     scope++;
 
-    if ( CurrentToken.code == LEFTPARENTHESIS ) 
+   if ( CurrentToken.code == LEFTPARENTHESIS ) 
     {
     	ParseParameterList();
     }
@@ -320,7 +354,6 @@ PRIVATE void ParseProcDeclaration( void )
     scope--;
 }
 
-
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
 /*  ParseParameterList implements:                                          */
@@ -334,23 +367,22 @@ PRIVATE void ParseProcDeclaration( void )
 /*                                                                          */
 /*    Returns:      Nothing                                                 */
 /*                                                                          */
-/*    Side Effects: Lookahead token advanced.                               */
+/*    Side Effects: Lookahead token advanced.                               */                         */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void ParseParameterList( void )
+PRIVATE void ParseParameterList(void)
 {
-	Accept( LEFTPARENTHESIS );
-	ParseFormalParameter();
-	
-	while ( CurrentToken.code == COMMA ) {
-		Accept( COMMA );
-		ParseFormalParameter();
-	}
-	
-	Accept( RIGHTPARENTHESIS );
-}
+    Accept( LEFTPARENTHESIS );
+    ParseFormalParameter();
 
+    while (CurrentToken.code == COMMA)
+    {
+        Accept(COMMA);
+        ParseFormalParameter();
+    }
+    Accept(RIGHTPARENTHESIS);
+}
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -365,17 +397,23 @@ PRIVATE void ParseParameterList( void )
 /*                                                                          */
 /*    Returns:      Nothing                                                 */
 /*                                                                          */
-/*    Side Effects: Lookahead token advanced.                               */
+/*    Side Effects: Lookahead token advanced.                          */
+/*                                                                          */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void ParseFormalParameter( void )
+PRIVATE void ParseFormalParameter(void)
 {
-    if ( CurrentToken.code == REF ) Accept( REF );
-    
+    if(CurrentToken.code == REF){
+        MakeSymbolTableEntry(STYPE_REFPAR); 
+        Accept(REF);
+    }
+
+    MakeSymbolTableEntry(STYPE_VARIABLE);
+
+    ParseVariable(); 
     Accept( IDENTIFIER );
 }
-
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -395,29 +433,30 @@ PRIVATE void ParseFormalParameter( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void ParseBlock( void )
+PRIVATE void ParseBlock(void)
 {
-	int token;
+Accept(BEGIN);
 
-	Accept( BEGIN );
-	Synchronise( &StatementFS_aug, &StatementFBS );
-	Synchronise( &BlockSet1, &FB_Block );
+Synchronise(&StatementFS_aug,&StatementFBS);
+Synchronise( &BlockSet1, &FB_Block );
 
-    while ( (token = CurrentToken.code) == IDENTIFIER || token == WHILE ||
-    		 token == IF || token == READ || token == WRITE)  {
-        ParseStatement();
-        Accept( SEMICOLON );
-        Synchronise( &StatementFS_aug, &StatementFBS );
-        Synchronise( &BlockSet1, &FB_Block );
-    }
-
-    Accept( END );
+ while (CurrentToken.code == IDENTIFIER || CurrentToken.code == WHILE ||
+    CurrentToken.code == IF || CurrentToken.code == READ ||
+    CurrentToken.code == WRITE){
+    ParseStatement();
+    Accept(SEMICOLON);
+    
+    Synchronise( &StatementFS_aug, &StatementFBS );
+    Synchronise( &BlockSet1, &FB_Block );
 }
 
 
+Accept(END);
+}
+
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  ParseStatement implements:                                        */
+/*  ParseStatement implements:                                              */
 /*                                                                          */
 /*       <Statement>  :==  <SimpleStatement> | <WhileStatement>  |          */
 /*                         <IfStatement> | <ReadStatement> |                */
@@ -434,6 +473,7 @@ PRIVATE void ParseBlock( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
+
 PRIVATE void ParseStatement( void )
 {
 	if ( CurrentToken.code == IDENTIFIER ) ParseSimpleStatement();
@@ -446,7 +486,6 @@ PRIVATE void ParseStatement( void )
 	
 	else if ( CurrentToken.code == WRITE ) ParseWriteStatement();
 }
-
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -465,6 +504,7 @@ PRIVATE void ParseStatement( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
+
 PRIVATE void ParseSimpleStatement( void )
 {
 	SYMBOL *target;
@@ -473,7 +513,6 @@ PRIVATE void ParseSimpleStatement( void )
 	Accept( IDENTIFIER );
 	ParseRestOfStatement( target );
 }
-
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -491,6 +530,7 @@ PRIVATE void ParseSimpleStatement( void )
 /*    Side Effects: Lookahead token advanced.                               */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
+
 
 PRIVATE void ParseRestOfStatement( SYMBOL *target )
 {
@@ -523,7 +563,6 @@ PRIVATE void ParseRestOfStatement( SYMBOL *target )
 	}
 }
 
-
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
 /*  ParseProcCallList implements:                                           */
@@ -541,6 +580,7 @@ PRIVATE void ParseRestOfStatement( SYMBOL *target )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
+
 PRIVATE void ParseProcCallList( void )
 {
 	Accept( LEFTPARENTHESIS );
@@ -553,7 +593,6 @@ PRIVATE void ParseProcCallList( void )
 	
 	Accept( RIGHTPARENTHESIS );
 }
-
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -572,12 +611,12 @@ PRIVATE void ParseProcCallList( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void ParseAssignment( void )
-{
-	Accept( ASSIGNMENT );
-	ParseExpression();
-}
 
+PRIVATE void ParseAssignment(void)
+{
+    Accept(ASSIGNMENT);
+    ParseExpression();
+}
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -596,14 +635,12 @@ PRIVATE void ParseAssignment( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-
 PRIVATE void ParseActualParameter( void )
 {
     if ( CurrentToken.code == IDENTIFIER ) Accept( IDENTIFIER );
     
     else ParseExpression();
 }
-
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -622,9 +659,10 @@ PRIVATE void ParseActualParameter( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void ParseWhileStatement( void )
+
+PRIVATE void ParseWhileStatement(void)
 {
-	int Label1, Label2, L2BackPatchLoc;
+    int Label1, Label2, L2BackPatchLoc;
     Accept( WHILE );
 	Label1 = CurrentCodeAddress();
 	L2BackPatchLoc = ParseBooleanExpression();
@@ -634,7 +672,6 @@ PRIVATE void ParseWhileStatement( void )
 	Label2 = CurrentCodeAddress();
 	BackPatch(L2BackPatchLoc, Label2);
 }
-
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -654,9 +691,10 @@ PRIVATE void ParseWhileStatement( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void ParseIfStatement( void )
+
+PRIVATE void ParseIfStatement(void)
 {
-	int L1BackPatchLoc, L2BackPatchLoc;
+    int L1BackPatchLoc, L2BackPatchLoc;
     Accept( IF );
     L1BackPatchLoc = ParseBooleanExpression();
     Accept( THEN );
@@ -674,7 +712,6 @@ PRIVATE void ParseIfStatement( void )
     else 
     	BackPatch( L1BackPatchLoc, CurrentCodeAddress() );
 }
-
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -694,20 +731,25 @@ PRIVATE void ParseIfStatement( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void ParseReadStatement( void )
+
+PRIVATE void ParseReadStatement(void)
 {
-    Accept( READ );
+    Accept(READ);
     Accept( LEFTPARENTHESIS );
     Accept( IDENTIFIER );
-    
-    while (CurrentToken.code == COMMA )  {
+
+    Read = 1;
+    ParseProcCallList();
+    Read = 0;
+
+    while (CurrentToken.code == COMMA )  
+    {
     	Accept( COMMA );
     	Accept( IDENTIFIER );
     }
     
     Accept( RIGHTPARENTHESIS );
 }
-
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -727,21 +769,24 @@ PRIVATE void ParseReadStatement( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void ParseWriteStatement( void )
+
+PRIVATE void ParseWriteStatement(void)
 {
     Accept( WRITE );
     Accept( LEFTPARENTHESIS );
     ParseExpression();
     
+    Write = 1;
+    ParseProcCallList();
+
     while (CurrentToken.code == COMMA )  {
     	Accept( COMMA );
     	ParseExpression();
     }
     
     Accept( RIGHTPARENTHESIS );
+
 }
-
-
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -760,23 +805,21 @@ PRIVATE void ParseWriteStatement( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void ParseExpression( void )
+
+PRIVATE void ParseExpression(void)
 {
     int op;
 
     ParseCompoundTerm();
-
     while ( (op = CurrentToken.code) == ADD ||		/* ADD: name for "+".  */
 			op == SUBTRACT )						/* SUBTRACT: "-".      */
     {
         ParseAddOp();
         ParseCompoundTerm();
 
-		if ( op == ADD) _Emit( I_ADD ); 
-		else _Emit(I_SUB);
+        if(op == ADD) _Emit(I_ADD); else _Emit(I_SUB);
     }
 }
-
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -795,6 +838,7 @@ PRIVATE void ParseExpression( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
+
 PRIVATE void ParseCompoundTerm( void )
 {
 	int token;
@@ -810,7 +854,6 @@ PRIVATE void ParseCompoundTerm( void )
 		else _Emit( I_DIV );
     }
 }
-
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -843,7 +886,6 @@ PRIVATE void ParseTerm( void )
 	if(negateflag) _Emit(I_NEG);
 }
 
-
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
 /*  ParseTerm implements:                                                   */
@@ -861,19 +903,21 @@ PRIVATE void ParseTerm( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE int ParseBooleanExpression( void )
+
+PRIVATE int ParseBooleanExpression(void)
 {
-	int BackPatchAddr, RelOpInstruction;
+    int BackPatchAddr, RelOpInstruction;
     ParseExpression();
     RelOpInstruction = ParseRelOp();
     ParseExpression();
-	_Emit(I_SUB);
-	BackPatchAddr = CurrentCodeAddress();
-	Emit(RelOpInstruction, 999);	// Branch to TEMP code address, 
+    _Emit(I_SUB);
+    ParseRelOp();
+    BackPatchAddr = CurrentCodeAddress( );
+    Emit( RelOpInstruction, 0 );   // Branch to TEMP code address, 
     								// to be backpatched later
-	return BackPatchAddr;
+    
+    return BackPatchAddr;
 }
-
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -893,36 +937,54 @@ PRIVATE int ParseBooleanExpression( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void ParseSubTerm( void )
+
+PRIVATE void ParseSubTerm(void)
 {
-	SYMBOL *var;
-	
-	switch ( CurrentToken.code )
-	{
-		case IDENTIFIER :			/*  Variable */
-    	default :
-    		var = LookupSymbol();
-    		if ( var != NULL && var->type == STYPE_VARIABLE )
-    			Emit ( I_LOADA, var -> address );
-    		else
-    		{
-				Error( "Undeclared variable\n", CurrentToken.pos );
-				KillCodeGeneration();
-    		}
-    		Accept( IDENTIFIER );
-    		break;
-	
-		case INTCONST :				/* Int Const */
-			Emit(I_LOADI, CurrentToken.value);
-			Accept( INTCONST );
-			break;
-		
-		case LEFTPARENTHESIS :		/* Expression */
-			Accept( LEFTPARENTHESIS );
-    		ParseExpression();
-    		Accept( RIGHTPARENTHESIS );
-    		break;
-	}
+    int i, j;
+
+    SYMBOL *var;
+    switch(CurrentToken.code)
+    {
+        case INTCONST:
+            Emit(I_LOADI,CurrentToken.value);
+            ParseIntConst(); 
+            break;
+        case LEFTPARENTHESIS:
+            Accept(LEFTPARENTHESIS);
+            ParseExpression();
+            Accept(RIGHTPARENTHESIS);
+            break;
+        case IDENTIFIER:
+        default:
+            var = LookupSymbol();
+            if(var != NULL && var->type == STYPE_VARIABLE) {
+                if (Write) {
+                    Emit(I_LOADA,var->address); 
+                }
+                else if (Read) {
+                    Emit(I_STOREA,var->address); 
+                }
+                else {
+                    Emit(I_LOADA,var->address);
+                }
+            }
+            else if ( var->type == STYPE_LOCALVAR ) {
+            j = scope - var->scope;
+            if ( j == 0 )
+            Emit( I_LOADFP, var->address );
+            else {
+            _Emit( I_LOADFP );
+
+            for ( i = 0; i < j - 1; i++ )
+                 _Emit( I_LOADSP );
+            Emit( I_LOADSP, var->address );
+            }
+           }
+
+            else printf("Undeclared Name or Variable");
+            ParseVariable(); 
+            break;
+    }
 }
 
 
@@ -943,13 +1005,13 @@ PRIVATE void ParseSubTerm( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
+
 PRIVATE void ParseAddOp( void )
 {
     if ( CurrentToken.code == ADD ) Accept( ADD );
     
     else Accept ( SUBTRACT );
 }
-
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -968,13 +1030,13 @@ PRIVATE void ParseAddOp( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
+
 PRIVATE void ParseMultOp( void )
 {
     if ( CurrentToken.code == MULTIPLY ) Accept( MULTIPLY );
     
     else Accept ( DIVIDE );
 }
-
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -992,6 +1054,7 @@ PRIVATE void ParseMultOp( void )
 /*    Side Effects: Lookahead token advanced.                               */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
+
 
 PRIVATE int ParseRelOp( void )
 {
@@ -1020,7 +1083,6 @@ PRIVATE int ParseRelOp( void )
 	}
 	return RelOpInstruction;
 }
-
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -1073,14 +1135,13 @@ PRIVATE void Accept( int ExpectedToken )
 	else CurrentToken = GetToken();
 }
 
-
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
 /*  OpenFiles:  Reads strings from the command-line and opens the           */
 /*              associated input and listing files.                         */
 /*                                                                          */
-/*    Note that this routine modifies the globals "InputFile" and           */
-/*    "ListingFile" and "CodeFile".  It returns 1 ("true" in C-speak) if the input and     */
+/*    Note that this routine mmodifies the globals "InputFile" and          */
+/*    "ListingFile".  It returns 1 ("true" in C-speak) if the input and     */
 /*    listing files are successfully opened, 0 if not, allowing the caller  */
 /*    to make a graceful exit if the opening process failed.                */
 /*                                                                          */
@@ -1101,8 +1162,9 @@ PRIVATE void Accept( int ExpectedToken )
 PRIVATE int  OpenFiles( int argc, char *argv[] )
 {
 
+
     if ( argc != 4 )  {
-        fprintf( stderr, "%s <inputfile> <listfile> <codefile>\n", argv[0] );
+        fprintf( stderr, "%s <inputfile> <listfile>\n", argv[0] );
         return 0;
     }
 
@@ -1116,16 +1178,16 @@ PRIVATE int  OpenFiles( int argc, char *argv[] )
         fclose( InputFile );
         return 0;
     }
-	// Added for Initialise Codegenerator, where the assembly code is written
+
     if ( NULL == ( CodeFile = fopen( argv[3], "w" ) ) )  {
-        fprintf( stderr, "cannot open \"%s\" for CodeFile = \n", argv[3] );
+        fprintf( stderr, "cannot open \"%s\" for output\n", argv[3] );
         fclose( InputFile );
+        fclose( ListFile );
         return 0;
     }
 
     return 1;
 }
-
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -1159,6 +1221,48 @@ PRIVATE void ReadToEndOfFile( void )
         Error( "Parsing ends here in this program\n", CurrentToken.pos );
         while ( CurrentToken.code != ENDOFINPUT )  CurrentToken = GetToken();
     }
+}
+
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*  ParseVariable implements:                                               */
+/*                                                                          */
+/*       <Variable> :== <Identifier>                                        */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
+
+
+PRIVATE void ParseVariable(void)
+{
+    ParseIdentifier();
+}
+
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*  ParseIntConst implements:                                               */
+/*                                                                          */
+/*       <IntConst> :== <Digit> { <Digit> }                                 */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
+
+
+PRIVATE void ParseIntConst(void)
+{
+    Accept(INTCONST);
+}
+
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*  ParseIdentifier implements:                                             */
+/*                                                                          */
+/*       <Identifier> :== <Alpha> { <AlphaNum> }                            */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
+
+
+PRIVATE void ParseIdentifier(void)
+{
+    Accept(IDENTIFIER);
 }
 
 
@@ -1224,7 +1328,7 @@ PRIVATE void MakeSymbolTableEntry ( int symtype )
 	SYMBOL *oldsptr, *newsptr;
 	char *cptr;
 	int hashindex;
-    static int varaddress = 0;
+    static int VarLctn = 0;
 	
 	if ( CurrentToken.code == IDENTIFIER )
 	{
@@ -1253,8 +1357,8 @@ PRIVATE void MakeSymbolTableEntry ( int symtype )
 				
 				if ( symtype == STYPE_VARIABLE )
 				{
-					newsptr -> address = varaddress;
-					varaddress++;
+					newsptr -> address = VarLctn;
+					VarLctn++;
 				}
 				else 
 					newsptr -> address = -1;
@@ -1268,29 +1372,6 @@ PRIVATE void MakeSymbolTableEntry ( int symtype )
 		}	
 	}
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
