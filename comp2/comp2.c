@@ -66,7 +66,7 @@ PRIVATE SET StatementFS_aug2, StatementFBS2;
 
 
 PRIVATE void ParseProgram( void );
-PRIVATE void ParseDeclarations( void );
+PRIVATE int ParseDeclarations( void );
 PRIVATE void ParseProcDeclaration( void );
 PRIVATE void ParseParameterList( void );
 PRIVATE void ParseFormalParameter( void );
@@ -93,12 +93,13 @@ PRIVATE void Accept( int code );
 PRIVATE void ReadToEndOfFile( void );
 PRIVATE void ParseIntConst(void); 
 PRIVATE void ParseIdentifier(void);
+PRIVATE void ParseVariable(void);
 
 PRIVATE int ParseBooleanExpression( void );
 PRIVATE int ParseRelOp( void );
 PRIVATE int OpenFiles( int argc, char *argv[] );
 
-PRIVATE SYMBOL *MakeSymbolTableEntry(int symtype);
+PRIVATE void MakeSymbolTableEntry(int symtype);
 PRIVATE SYMBOL *LookupSymbol();
 
 
@@ -185,7 +186,7 @@ PRIVATE void SetupSets(void){
 /*                                                                          */
 /*    Returns:      Nothing                                                 */
 /*                                                                          */
-/*    Side Effects: Lookahead token advanced.                             */
+/*    Side Effects: Lookahead token advanced.                               */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
@@ -270,7 +271,7 @@ PRIVATE void ParseProgram(void)
 /*                                                                          */
 /*    Returns:      Nothing                                                 */
 /*                                                                          */
-/*    Side Effects: Lookahead token advanced.                                                 */
+/*    Side Effects: Lookahead token advanced.                               */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
@@ -367,7 +368,7 @@ PRIVATE void ParseProcDeclaration(void)
 /*                                                                          */
 /*    Returns:      Nothing                                                 */
 /*                                                                          */
-/*    Side Effects: Lookahead token advanced.                               */                         */
+/*    Side Effects: Lookahead token advanced.                               */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
@@ -440,9 +441,10 @@ Accept(BEGIN);
 Synchronise(&StatementFS_aug,&StatementFBS);
 Synchronise( &BlockSet1, &FB_Block );
 
- while (CurrentToken.code == IDENTIFIER || CurrentToken.code == WHILE ||
+while (CurrentToken.code == IDENTIFIER || CurrentToken.code == WHILE ||
     CurrentToken.code == IF || CurrentToken.code == READ ||
-    CurrentToken.code == WRITE){
+    CurrentToken.code == WRITE)
+{
     ParseStatement();
     Accept(SEMICOLON);
     
