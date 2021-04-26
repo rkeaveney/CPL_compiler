@@ -751,6 +751,7 @@ PRIVATE void ParseReadStatement(void)
     }
     
     Accept( RIGHTPARENTHESIS );
+	_Emit(I_READ);
 }
 
 /*--------------------------------------------------------------------------*/
@@ -787,7 +788,7 @@ PRIVATE void ParseWriteStatement(void)
     }
     
     Accept( RIGHTPARENTHESIS );
-
+	_Emit(I_WRITE);
 }
 
 /*--------------------------------------------------------------------------*/
@@ -1374,6 +1375,3 @@ PRIVATE void MakeSymbolTableEntry ( int symtype )
 		}	
 	}
 }
-
-
-
