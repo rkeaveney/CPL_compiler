@@ -1,7 +1,14 @@
-# ce4717_assignment
-CE4717 Language Processors assignment
+# CPL Compiler
+Language Processors assignment
 
-This is the programming project for module CE4717, Spring Semester, AY 2020/2021.
+This is a compiler for the Compiler Programming Language (CPL). This is a very simple language which is designed to make it relatively simple to write a compiler. 
+
+My compiler handles:
+* Parsing
+* Syntax Error Detection
+* Error Recovery
+* Semantic Error Detection
+* Assembly Code Generation
 
 Given:
 
@@ -39,17 +46,6 @@ This is a full compiler performing syntax and semantic error detection and code 
 
 The idea is that you build up the project in small incremental parts. First you write and test parser1.c, when this is working, and has passed all the tests you think appropriate, copy it to parser2.c, and save parser1.c in a safe place. Take the source in file parser2.c, extend this to implement the required parser2 functionality and test it. When you are happy that parser2.c is working properly, copy it to comp1.c, and save parser2.c in a safe place. Extend comp1.c and test, etc.
 
-Each successive part of the project represents a "freeze-point", where you archive a stable version of your work. When you are done, you will have four source files, parser1.c, parser2.c, comp1.c, and comp2.c. **These four files are what you submit as your project.  _I do not want any object, executable or library files._**
-
-You may submit the four source files as separate attachments, or all together in a ".zip" file, a ".tar" file, or ".tgz" (".tar.gz") file.  Please do not submit sources compressed using the rar format.
-
-**A note on test cases:** I have provided a few test cases for the various parsers and compilers in the software kits. These are designed to give you a start with testing, they are not sufficient to test each part of the project thoroughly. It is up to you to add appropriate test cases to ensure that your code is working well. I will use unseen test cases to check the behaviour of your code when I am grading it.
-
-You may work by yourself on the project, or in a group with one or two others. Include the names and I.D. numbers of all participants in your group at the start of each source file.
-
-The **deadline for submission** of the CE4717 project is **Monday week 12, (19th-April-2021) at 17h00**.
-
-
 
 Command-line calling conventions for your project work:
 
@@ -76,11 +72,6 @@ Project Software
 
 The software kit for the module consists of a set of sources which compile into a character-handler, scanner, string table and symbol table for the project compiler. It is designed to work on any Unix system that supports the gcc compiler, Gnu make and Gnu ar. This, of course, includes all popular desktop Linux distributions. It will also work with Cygwin on Windows. The kit has been tested with gcc 9.x on Mac OS/X. Ubuntu, Debian, Arch Linux, and Cygwin.  Clang also works well.
 
-The kit may be downloaded from the "Resources/Software/Project Software/" section of this site.  It is in the file "distrib-unix.tgz".  Use tar to unwrap the archive:
-
-     $ tar xzvof distrib-unix.tgz
-
-(or you can download and unzip the zip version of the file, the contents are the same).
 
 N.B., The software environment assumed for the module is Unix/Linux.  In particular, I will expect your code to compile cleanly using the gcc or clang compilers in a Unix/Linux environment.  Do not use a Windows C compiler. 
 
