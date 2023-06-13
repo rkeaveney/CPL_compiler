@@ -19,7 +19,6 @@ Given:
     String table manipulation
     Scanning
     Symbol table manipulation
-    (All available via the module's "compiler kit" in the file "distrib-unix.tgz / distrib-unix.zip", see below.).
          
 3. An interpreter for the target machine assembly language ("sim" - command line, or "simgui" - graphical).
 
